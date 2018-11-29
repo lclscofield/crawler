@@ -9,7 +9,6 @@
   "author": "lclscofield",
   "license": "ISC",
   "dependencies": {
-    "crawler": "^1.2.0",
     "koa": "^2.6.2"
   }
 }
