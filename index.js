@@ -21,25 +21,61 @@ async function getHtml(url) {
 }
 
 async function getYgdy(startIndex, endIndex) {
-  for (let i = startIndex; i <= endIndex; i++) {
-    let movies = []
+  let arr = []
+  for (let i = 0; i < endIndex - startIndex + 1; i++) {
+    arr[i] = ''
+  }
+  const allMovies = arr.map(async (item, index) => {
+    let i = index + startIndex // 爬取的当前页数
+    let movies = [] // 一页的所有电影
+
     console.log(`正在获取第 ${i} 页的 Movie`)
     let url = `http://www.ygdy8.net/html/gndy/dyzz/list_23_${i}.html`
     let $ = await getHtml(url)
-    let $elements = []
+
     $('.co_content8 td a').each((idx, e) => {
-      $elements.push($(e))
-    })
-    for (let j = 0; j < $elements.length; j++) {
-      let link = await getYgdyLink($elements[j].attr('href'))
+      let $e = $(e)
       movies.push({
-        title: $elements[j].text(),
-        link
+        title: $e.text(),
+        href: $e.attr('href'),
+        link: ''
       })
+    })
+
+    const links = movies.map(async item => {
+      let resLink = await getYgdyLink(item.href)
+      return resLink
+    })
+
+    for (const key in links) {
+      movies[key].link = await links[key]
     }
-    AllMovies.push(movies)
-    console.log(movies)
+
+    return movies
+  })
+
+  for (const value of allMovies) {
+    AllMovies.push(await value)
   }
+  // for (let i = startIndex; i <= endIndex; i++) {
+  //   let movies = [] // 一页的所有电影
+  //   console.log(`正在获取第 ${i} 页的 Movie`)
+  //   let url = `http://www.ygdy8.net/html/gndy/dyzz/list_23_${i}.html`
+  //   let $ = await getHtml(url)
+  //   let $elements = []
+  //   $('.co_content8 td a').each((idx, e) => {
+  //     $elements.push($(e))
+  //   })
+  //   for (let j = 0; j < $elements.length; j++) {
+  //     let link = await getYgdyLink($elements[j].attr('href'))
+  //     movies.push({
+  //       title: $elements[j].text(),
+  //       link
+  //     })
+  //   }
+  //   AllMovies.push(movies)
+  //   console.log(movies)
+  // }
 }
 
 async function getYgdyLink(link) {
@@ -50,7 +86,10 @@ async function getYgdyLink(link) {
 }
 
 async function main(startIndex, endIndex) {
+  let startTime = new Date()
   await getYgdy(startIndex, endIndex)
+  let endTime = new Date()
   console.log('获取 Movies 完毕')
+  console.log(`共消耗时间${endTime - startTime}ms`)
 }
 main(1, 2)
