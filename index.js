@@ -57,25 +57,6 @@ async function getYgdy(startIndex, endIndex) {
   for (const value of allMovies) {
     AllMovies.push(await value)
   }
-  // for (let i = startIndex; i <= endIndex; i++) {
-  //   let movies = [] // 一页的所有电影
-  //   console.log(`正在获取第 ${i} 页的 Movie`)
-  //   let url = `http://www.ygdy8.net/html/gndy/dyzz/list_23_${i}.html`
-  //   let $ = await getHtml(url)
-  //   let $elements = []
-  //   $('.co_content8 td a').each((idx, e) => {
-  //     $elements.push($(e))
-  //   })
-  //   for (let j = 0; j < $elements.length; j++) {
-  //     let link = await getYgdyLink($elements[j].attr('href'))
-  //     movies.push({
-  //       title: $elements[j].text(),
-  //       link
-  //     })
-  //   }
-  //   AllMovies.push(movies)
-  //   console.log(movies)
-  // }
 }
 
 async function getYgdyLink(link) {
