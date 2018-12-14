@@ -1,7 +1,7 @@
 const http = require('http')
 const cheerio = require('cheerio')
 const iconvLite = require('iconv-lite')
-const db = require('./db')
+const { db, mongoose } = require('./db')
 
 let AllMovies = []
 
@@ -43,16 +43,20 @@ async function getYgdy(startIndex, endIndex) {
       })
     })
 
-    const links = movies.map(async item => {
-      let resLink = await getYgdyLink(item.href)
-      return resLink
-    })
+    try {
+      const links = movies.map(async item => {
+        let resLink = await getYgdyLink(item.href)
+        return resLink
+      })
 
-    for (const key in links) {
-      movies[key].link = await links[key]
+      for (const key in links) {
+        movies[key].link = await links[key]
+      }
+
+      return movies
+    } catch (err) {
+      console.log(err)
     }
-
-    return movies
   })
 
   for (const value of allMovies) {
@@ -67,20 +71,47 @@ async function getYgdyLink(link) {
   return linkElement ? linkElement.attr('href') : ''
 }
 
+// async function timeAwait (time) {
+//   return setTimeout(() => {
+//   }, time);
+// }
+
 async function main(startIndex, endIndex) {
   let startTime = new Date()
-  await getYgdy(startIndex, endIndex)
+
+  let page = endIndex - startIndex + 1
+  let quotient = page / 5
+  let remainder = page % 5
+  for (let i = 0; i < quotient; i++) {
+    await getYgdy(startIndex, startIndex + 4)
+    await setTimeout(() => {}, 5000)
+    startIndex += 5
+  }
+  if (remainder > 0) {
+    await getYgdy(startIndex, startIndex + remainder - 1)
+  }
+
   let endTime = new Date()
   console.log('获取 Movies 完毕')
+  console.log(`获取消耗时间${endTime - startTime}ms`)
 
   console.log('开始插入数据库')
+  startTime = new Date()
   for (const value of AllMovies) {
     value.forEach(item => {
-      const MovieInfo = db.MovieInfo
-      MovieInfo(item).save()
+      try {
+        const MovieInfo = db.MovieInfo
+        MovieInfo(item).save()
+      } catch (err) {
+        console.log(err)
+      }
     })
   }
+  endTime = new Date()
   console.log('插入数据库完毕')
-  console.log(`共消耗时间${endTime - startTime}ms`)
+  console.log(`写入数据库消耗时间${endTime - startTime}ms`)
+  mongoose.disconnect(() => {
+    console.log('连接断开')
+  })
 }
-main(1, 2)
+main(101, 200)

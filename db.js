@@ -2,16 +2,17 @@
 const mongoose = require('mongoose')
 
 // 连接数据库
-mongoose.connect('mongodb://localhost:27017/lcl')
-const db = mongoose.connection
-// 连接成功
-db.on('connected', () => {
-  console.log('连接成功')
-})
-// 连接失败
-db.on('error', () => {
-  console.log('连接失败')
-})
+mongoose.connect(
+  'mongodb://localhost:27017/lcl',
+  { useNewUrlParser: true },
+  err => {
+    if (err) {
+      console.log('连接失败')
+    } else {
+      console.log('连接成功')
+    }
+  }
+)
 
 // mongoose.Schema 方法用来定义数据集的格式
 const Schema = mongoose.Schema
@@ -30,4 +31,7 @@ const Models = {
   MovieInfo: mongoose.model('movies', MovieSchema)
 }
 
-module.exports = Models
+module.exports = {
+  db: Models,
+  mongoose
+}
