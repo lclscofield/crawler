@@ -1,6 +1,7 @@
 const http = require('http')
 const cheerio = require('cheerio')
 const iconvLite = require('iconv-lite')
+const db = require('./db')
 
 let AllMovies = []
 
@@ -71,6 +72,15 @@ async function main(startIndex, endIndex) {
   await getYgdy(startIndex, endIndex)
   let endTime = new Date()
   console.log('获取 Movies 完毕')
+
+  console.log('开始插入数据库')
+  for (const value of AllMovies) {
+    value.forEach(item => {
+      const MovieInfo = db.MovieInfo
+      MovieInfo(item).save()
+    })
+  }
+  console.log('插入数据库完毕')
   console.log(`共消耗时间${endTime - startTime}ms`)
 }
 main(1, 2)
