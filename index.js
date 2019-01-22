@@ -5,113 +5,107 @@ const { db, mongoose } = require('./db')
 
 let AllMovies = []
 
-async function getHtml(url) {
+async function getHtml(url, type) {
   return new Promise((resolve, reject) => {
     let req = http.get(url)
-    let chunks = [] // 储存页面
+    let chunks = [] // 储存页面块
     req.on('response', res => {
       res.on('data', chunk => {
         chunks.push(chunk)
       })
       res.on('end', () => {
-        let html = iconvLite.decode(Buffer.concat(chunks), 'gb2312')
+        let html = iconvLite.decode(Buffer.concat(chunks), type)
         resolve(cheerio.load(html, { decodeEntities: false }))
       })
     })
   })
 }
 
-async function getYgdy(startIndex, endIndex) {
-  let arr = []
-  for (let i = 0; i < endIndex - startIndex + 1; i++) {
-    arr[i] = ''
-  }
-  const allMovies = arr.map(async (item, index) => {
-    let i = index + startIndex // 爬取的当前页数
-    let movies = [] // 一页的所有电影
-
-    console.log(`正在获取第 ${i} 页的 Movie`)
-    let url = `http://www.ygdy8.net/html/gndy/dyzz/list_23_${i}.html`
-    let $ = await getHtml(url)
-
-    $('.co_content8 td a').each((idx, e) => {
-      let $e = $(e)
-      movies.push({
-        title: $e.text(),
-        href: $e.attr('href'),
-        link: ''
-      })
+async function getYgdyMain(i) {
+  console.log(`正在获取第 ${i} 页的 Movie`)
+  const startTime = new Date()
+  let movies = []
+  let hrefs = []
+  const url = `http://www.ygdy8.net/html/gndy/dyzz/list_23_${i}.html`
+  const $ = await getHtml(url, 'gb2312')
+  $('.co_content8 td a').each((idx, e) => {
+    let $e = $(e)
+    movies.push({
+      title: $e.text(),
+      link: ''
     })
-
-    try {
-      const links = movies.map(async item => {
-        let resLink = await getYgdyLink(item.href)
-        return resLink
-      })
-
-      for (const key in links) {
-        movies[key].link = await links[key]
-      }
-
-      return movies
-    } catch (err) {
-      console.log(err)
-    }
+    hrefs.push($e.attr('href'))
   })
-
-  for (const value of allMovies) {
-    AllMovies.push(await value)
-  }
+  const links = await getYgdyLink(hrefs)
+  movies.forEach((item, index) => {
+    item.link = links[index]
+  })
+  const endTime = new Date()
+  console.log(`获取本页消耗时间${endTime - startTime}ms`)
+  return movies
 }
 
-async function getYgdyLink(link) {
-  let url = `http://www.ygdy8.net${link}`
-  let $ = await getHtml(url)
-  let linkElement = $('#Zoom td a')
-  return linkElement ? linkElement.attr('href') : ''
-}
-
-// async function timeAwait (time) {
-//   return setTimeout(() => {
-//   }, time);
-// }
-
-async function main(startIndex, endIndex) {
-  let startTime = new Date()
-
-  let page = endIndex - startIndex + 1
-  let quotient = page / 5
-  let remainder = page % 5
-  for (let i = 0; i < quotient; i++) {
-    await getYgdy(startIndex, startIndex + 4)
-    await setTimeout(() => {}, 5000)
-    startIndex += 5
-  }
-  if (remainder > 0) {
-    await getYgdy(startIndex, startIndex + remainder - 1)
-  }
-
-  let endTime = new Date()
-  console.log('获取 Movies 完毕')
-  console.log(`获取消耗时间${endTime - startTime}ms`)
-
-  console.log('开始插入数据库')
-  startTime = new Date()
-  for (const value of AllMovies) {
-    value.forEach(item => {
-      try {
-        const MovieInfo = db.MovieInfo
-        MovieInfo(item).save()
-      } catch (err) {
-        console.log(err)
-      }
+async function getYgdyLink(hrefs) {
+  const promises = hrefs.map(item => {
+    return getHtml(`http://www.ygdy8.net${item}`, 'gb2312')
+  })
+  let links = []
+  await Promise.all(promises)
+    .then(htmls => {
+      links = htmls.map($ => {
+        let linkElement = $('#Zoom td a')
+        return linkElement ? linkElement.attr('href') : ''
+      })
     })
+    .catch(err => {
+      throw new Error(err)
+    })
+  return links
+}
+
+async function getMoviesData(startIndex, endIndex) {
+  const startTime = new Date()
+  const page = endIndex - startIndex + 1
+  for (let i = startIndex; i <= page; i++) {
+    AllMovies = AllMovies.concat(await getYgdyMain(i))
+    // console.log(AllMovies[i - startIndex], AllMovies[i - startIndex].length)
   }
-  endTime = new Date()
+  const endTime = new Date()
+  console.log('获取 Movies 完毕')
+  console.log(`获取共消耗时间${endTime - startTime}ms`)
+}
+
+async function insertMongo() {
+  // 连接数据库
+  await mongoose.connect(
+    'mongodb://localhost:27017/lcl',
+    { useNewUrlParser: true },
+    err => {
+      if (err) {
+        console.log('连接失败')
+      } else {
+        console.log('连接成功')
+      }
+    }
+  )
+  console.log('开始插入数据库')
+  const startTime = new Date()
+  try {
+    await db.MovieInfo.create(AllMovies)
+  } catch (err) {
+    console.log(err)
+  }
+  const endTime = new Date()
   console.log('插入数据库完毕')
   console.log(`写入数据库消耗时间${endTime - startTime}ms`)
-  mongoose.disconnect(() => {
+  await mongoose.disconnect(() => {
     console.log('连接断开')
   })
 }
-main(101, 200)
+
+async function main(startIndex, endIndex) {
+  await getMoviesData(startIndex, endIndex)
+  await insertMongo()
+  console.log('end')
+}
+main(1, 100)
